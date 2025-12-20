@@ -38,18 +38,21 @@ class HwpxParser(BaseParser):
         self.font_faces: Dict[str, str] = {}         # id -> font name
         self._footnote_counter: int = 0
         self._base_font_size: int = 1000  # 기본 글자 크기 (10pt = 1000)
-    
-    def parse(self, file_path: str) -> Document:
+        self._analyze_images: bool = True  # 이미지 분석 여부
+
+    def parse(self, file_path: str, analyze_images: bool = True) -> Document:
         """HWPX 파일 파싱
-        
+
         Args:
             file_path: HWPX 파일 경로
-            
+            analyze_images: Gemini API로 이미지 분석 수행 여부
+
         Returns:
             Document: 파싱된 문서 객체
         """
         doc = Document()
-        
+        self._analyze_images = analyze_images
+
         # 인스턴스 변수 초기화 (재사용 시 이전 결과 제거)
         self.char_shapes.clear()
         self.para_shapes.clear()
@@ -137,9 +140,9 @@ class HwpxParser(BaseParser):
                 }
                 mime_type = mime_map.get(image_format, 'image/png')
                 
-                # Gemini Vision API로 이미지 분석 (API 키 설정 시, 지원 포맷만)
+                # Gemini Vision API로 이미지 분석 (옵션이 활성화되고 지원 포맷인 경우만)
                 description = None
-                if mime_type:  # None이면 Gemini 미지원 포맷
+                if self._analyze_images and mime_type:  # 분석 옵션 확인 + None이면 Gemini 미지원 포맷
                     try:
                         from .. import image_analyzer
                         if image_analyzer.is_available():
@@ -484,15 +487,15 @@ class HwpxParser(BaseParser):
         """tbl 요소 파싱"""
         table = Table()
         table.col_count = int(tbl_elem.get('colCnt', '0'))
-        
+
         for tr in self._find_all_children(tbl_elem, 'tr'):
             row = TableRow()
-            
+
             for tc in self._find_all_children(tr, 'tc'):
                 cell = TableCell()
                 cell.colspan = int(tc.get('colSpan', '1'))
                 cell.rowspan = int(tc.get('rowSpan', '1'))
-                
+
                 # 셀 내 문단들 (재귀 탐색)
                 # tc 하위의 모든 p 요소를 찾음 (중첩 포함)
                 for child in tc.iter():
@@ -501,11 +504,16 @@ class HwpxParser(BaseParser):
                         processed.add(id(child))
                         para = self._parse_paragraph(child)
                         cell.paragraphs.append(para)
-                
+                    # 셀 내 이미지 추출 (hp:pic > hc:img)
+                    elif child_local == 'img':
+                        img_ref = child.get('binaryItemIDRef')
+                        if img_ref:
+                            cell.image_ids.append(img_ref)
+
                 row.cells.append(cell)
-            
+
             table.rows.append(row)
-        
+
         return table
     
     def _find_child(self, elem, local_name: str):

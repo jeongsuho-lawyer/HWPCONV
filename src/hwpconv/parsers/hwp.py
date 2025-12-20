@@ -95,17 +95,20 @@ class HwpParser(BaseParser):
         self._footnote_counter: int = 0
         self._base_font_size: int = 1000  # 기본 글자 크기 (10pt)
         self._image_counter: int = 0  # 이미지 삽입 순서 추적
-    
-    def parse(self, file_path: str) -> Document:
+        self._analyze_images: bool = True  # 이미지 분석 여부
+
+    def parse(self, file_path: str, analyze_images: bool = True) -> Document:
         """HWP 파일 파싱
-        
+
         Args:
             file_path: HWP 파일 경로
-            
+            analyze_images: Gemini API로 이미지 분석 수행 여부
+
         Returns:
             Document: 파싱된 문서 객체
         """
         doc = Document()
+        self._analyze_images = analyze_images
         
         # 인스턴스 변수 초기화 (재사용 시 이전 결과 제거)
         self.char_shapes.clear()
@@ -225,9 +228,9 @@ class HwpParser(BaseParser):
                 }
                 mime_type = mime_map.get(image_format, 'image/png')
                 
-                # Gemini Vision API로 이미지 분석 (지원 포맷만)
+                # Gemini Vision API로 이미지 분석 (옵션이 활성화되고 지원 포맷인 경우만)
                 description = None
-                if mime_type:  # None이면 Gemini 미지원 포맷
+                if self._analyze_images and mime_type:  # 분석 옵션 확인 + None이면 Gemini 미지원 포맷
                     try:
                         from .. import image_analyzer
                         if image_analyzer.is_available():

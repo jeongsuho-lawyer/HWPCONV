@@ -55,8 +55,9 @@ class HwpConverterApp(tkinterDnD.Tk):
         
         self.files: Dict[str, FileItem] = {}
         self.output_format = tk.StringVar(value='마크다운')
+        self.enable_image_analysis = tk.BooleanVar(value=False)  # 이미지 분석 옵션 (기본 비활성)
         self._dot_count = 0  # 점 애니메이션 카운터
-        
+
         self._setup_fonts()
         self._create_ui()
         self._start_animation()  # 점 애니메이션 시작
@@ -117,8 +118,33 @@ class HwpConverterApp(tkinterDnD.Tk):
             command=lambda: self._set_format("HTML")
         )
         self.btn_html.pack(side="left")
-        
+
         self._set_format("마크다운")
+
+        # 이미지 분석 옵션 (형식 선택 아래)
+        img_option_frame = ctk.CTkFrame(main, fg_color="transparent")
+        img_option_frame.pack(fill="x", padx=30, pady=(5, 10))
+
+        self.img_analysis_checkbox = ctk.CTkCheckBox(
+            img_option_frame,
+            text="🖼️ 이미지 분석 (Gemini API)",
+            variable=self.enable_image_analysis,
+            font=ctk.CTkFont(family=self.font_family, size=11),
+            text_color=COLORS['text'],
+            command=self._on_image_analysis_toggle
+        )
+        self.img_analysis_checkbox.pack(side="left")
+
+        self.img_analysis_warning = ctk.CTkLabel(
+            img_option_frame,
+            text="⚠️ 분석 시 변환 시간이 크게 증가합니다",
+            font=ctk.CTkFont(family=self.font_family, size=10),
+            text_color="#b45309"
+        )
+        # 초기에는 숨김 (체크박스 활성화 시 표시)
+
+        # API 키 없으면 비활성화
+        self._update_image_analysis_state()
 
         # 2. 드롭 영역 (tk.Frame 사용 - python-tkdnd 호환)
         self.drop_frame = tk.Frame(
@@ -201,12 +227,12 @@ class HwpConverterApp(tkinterDnD.Tk):
         """하단 상태 메시지 업데이트"""
         if app_config.has_api_key():
             self.footer_label.configure(
-                text="💡 HWP/HWPX 파일의 표, 텍스트, 이미지를 완벽하게 변환합니다.",
+                text="💡 HWP/HWPX 파일의 표, 텍스트, 이미지를 완벽하게 변환합니다. (이미지 분석 활성화 가능)",
                 text_color=COLORS['primary_dark']
             )
         else:
             self.footer_label.configure(
-                text="⚠️ API 키 미설정 - 이미지 분석 기능이 비활성화됩니다. (⚙ 설정에서 입력)",
+                text="⚠️ API 키 미설정 - 이미지 분석이 비활성화됩니다. (⚙ 설정에서 Gemini API 키 입력)",
                 text_color="#b45309"  # 주황색
             )
     
@@ -229,6 +255,7 @@ class HwpConverterApp(tkinterDnD.Tk):
                 app_config.save_api_key("")
                 messagebox.showinfo("초기화", "API 키가 삭제되었습니다.")
             self._update_footer_status()
+            self._update_image_analysis_state()
     
     def _set_format(self, fmt):
         """형식 선택 및 버튼 상태 업데이트"""
@@ -239,6 +266,24 @@ class HwpConverterApp(tkinterDnD.Tk):
         else:
             self.btn_md.configure(fg_color=COLORS['border'], text_color=COLORS['text'], hover_color=COLORS['bg_subtle'])
             self.btn_html.configure(fg_color=COLORS['primary'], text_color="white", hover_color=COLORS['primary_dark'])
+
+    def _on_image_analysis_toggle(self):
+        """이미지 분석 옵션 토글 시 경고 표시/숨김"""
+        if self.enable_image_analysis.get():
+            self.img_analysis_warning.pack(side="left", padx=(15, 0))
+        else:
+            self.img_analysis_warning.pack_forget()
+
+    def _update_image_analysis_state(self):
+        """API 키 상태에 따라 이미지 분석 옵션 활성화/비활성화"""
+        if app_config.has_api_key():
+            self.img_analysis_checkbox.configure(state="normal")
+            self.img_analysis_checkbox.configure(text="🖼️ 이미지 분석 (Gemini API)")
+        else:
+            self.img_analysis_checkbox.configure(state="disabled")
+            self.enable_image_analysis.set(False)
+            self.img_analysis_checkbox.configure(text="🖼️ 이미지 분석 (API 키 필요)")
+            self.img_analysis_warning.pack_forget()
     
     def _start_animation(self):
         """애니메이션 타이머 (현재 비활성화)"""
@@ -299,26 +344,28 @@ class HwpConverterApp(tkinterDnD.Tk):
     def _process_queue(self, keys):
         import time
         fmt = self.output_format.get()
+        analyze_images = self.enable_image_analysis.get()  # 이미지 분석 옵션
+
         try:
             from .parsers.hwp import HwpParser
             from .parsers.hwpx import HwpxParser
             from .converters.markdown import MarkdownConverter
             from .converters.html import HtmlConverter
-            
+
             for key in keys:
                 item = self.files.get(key)
                 if not item: continue
-                
+
                 item.status = 'converting'
                 self.after(0, self._update_list)
-                
+
                 start_time = time.time()
                 try:
                     ext = item.path.suffix.lower()
                     if ext == '.hwpx':
-                        doc = HwpxParser().parse(str(item.path))
+                        doc = HwpxParser().parse(str(item.path), analyze_images=analyze_images)
                     else:
-                        doc = HwpParser().parse(str(item.path))
+                        doc = HwpParser().parse(str(item.path), analyze_images=analyze_images)
                     
                     if fmt == 'HTML':
                         item.output_content = HtmlConverter(include_images=True).convert(doc)
