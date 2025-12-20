@@ -279,7 +279,7 @@ HWP/HWPX 파일을 Markdown/HTML로 변환하는 도구입니다.
 연락처: shj@lawren.co.kr
 
 본 제품은 한글과컴퓨터의 한글 문서 파일(.hwp) 공개 문서를 참고하여 개발하였습니다.
-이미지 분석에 Google Gemini API를 사용합니다."""
+이미지 분석에 Google Gemini API (Gemini 3 Flash Preview)를 사용합니다."""
         messagebox.showinfo("프로그램 정보", about_text)
 
     def _show_settings(self):
