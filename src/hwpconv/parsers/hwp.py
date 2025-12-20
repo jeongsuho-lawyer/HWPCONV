@@ -820,8 +820,8 @@ class HwpParser(BaseParser):
                 if level <= base_level:
                     break
                 
+                # TABLE 레코드에서 row/col 읽기
                 if tag_id == self.HWPTAG_TABLE:
-                    # 표 속성 파싱
                     if len(record_data) >= 8:
                         row_count = struct.unpack('<H', record_data[4:6])[0]
                         col_count = struct.unpack('<H', record_data[6:8])[0]
@@ -841,7 +841,10 @@ class HwpParser(BaseParser):
                     if current_cell is not None:
                         cells.append(current_cell)
                     
-                    # 순차 배치 (셀 위치 정보 파싱은 HWP 버전별로 다를 수 있어 비활성화)
+                    # 셀 개수 확인 - 모든 셀을 읽었으면 종료
+                    if table_info and len(cells) >= row_count * col_count:
+                        break
+                    
                     current_cell = {'paragraphs': []}
                     consumed += 1
                 
