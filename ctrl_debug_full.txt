@@ -1,0 +1,27 @@
+﻿=== CTRL_HEADER와 TABLE 태그 확인 ===
+
+
+총 CTRL_HEADER: 0개
+총 TABLE: 0개
+
+=== 정규화 TAG 21 (CTRL_HEADER) 검증 ===
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21
+Found tag 71 → normalized 21

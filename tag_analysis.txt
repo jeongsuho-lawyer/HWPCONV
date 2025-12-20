@@ -1,0 +1,13 @@
+﻿=== 모든 태그 분포 ===
+PARA_HEADER          (ID  16):  204개
+PARA_TEXT            (ID  17):  123개
+PARA_CHAR_SHAPE      (ID  18):  204개
+PARA_LINE_SEG        (ID  19):  204개
+CTRL_HEADER          (ID  21):   20개
+TAG_23               (ID  23):    1개
+LIST_HEADER          (ID  24):  126개
+TAG_25               (ID  25):    3개
+TAG_26               (ID  26):    6개
+TAG_27               (ID  27):   10개
+TAG_82               (ID  82):    1개
+TAG_85               (ID  85):    5개
