@@ -127,9 +127,12 @@ class MarkdownConverter(BaseConverter):
         # AI 분석 설명이 있으면 해당 설명만 표시
         if img.description:
             return f'\n> 🖼️ **[이미지]**: {img.description}\n'
+        elif img.analyzed:
+            # 분석 시도했으나 실패한 경우
+            return f'\n> 🖼️ **[이미지]**: *(이미지 분석 실패)*\n'
         else:
-            # 설명이 없으면 이미지 존재만 표시
-            return f'\n> 🖼️ **[이미지]**: *(이미지 분석 불가)*\n'
+            # 분석을 시도하지 않은 경우
+            return f'\n> 🖼️ **[이미지]**: *(이미지 생략)*\n'
     
     def _convert_paragraph(self, para: Paragraph) -> str:
         """문단 → Markdown"""
@@ -228,11 +231,11 @@ class MarkdownConverter(BaseConverter):
                         if doc and img_id in doc.images:
                             img = doc.images[img_id]
                             if img.description:
-                                img_descs.append(f'[이미지: {img.description}]')
+                                img_descs.append(f'🖼️ [이미지: {img.description}]')
                             else:
-                                img_descs.append('[이미지]')
+                                img_descs.append('🖼️ [이미지]')
                         else:
-                            img_descs.append(f'[이미지:{img_id}]')
+                            img_descs.append(f'🖼️ [이미지]')
                     img_text = ' '.join(img_descs)
                     cell_text = f'{cell_text} {img_text}'.strip() if cell_text else img_text
 

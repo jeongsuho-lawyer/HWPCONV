@@ -95,20 +95,20 @@ class HwpParser(BaseParser):
         self._footnote_counter: int = 0
         self._base_font_size: int = 1000  # 기본 글자 크기 (10pt)
         self._image_counter: int = 0  # 이미지 삽입 순서 추적
-        self._analyze_images: bool = True  # 이미지 분석 여부
+        self._analyze_mode: str = "none"  # 이미지 분석 모드 (none/brief/detailed)
 
-    def parse(self, file_path: str, analyze_images: bool = True) -> Document:
+    def parse(self, file_path: str, analyze_mode: str = "none") -> Document:
         """HWP 파일 파싱
 
         Args:
             file_path: HWP 파일 경로
-            analyze_images: Gemini API로 이미지 분석 수행 여부
+            analyze_mode: 이미지 분석 모드 ('none', 'brief', 'detailed')
 
         Returns:
             Document: 파싱된 문서 객체
         """
         doc = Document()
-        self._analyze_images = analyze_images
+        self._analyze_mode = analyze_mode
         
         # 인스턴스 변수 초기화 (재사용 시 이전 결과 제거)
         self.char_shapes.clear()
@@ -228,23 +228,26 @@ class HwpParser(BaseParser):
                 }
                 mime_type = mime_map.get(image_format, 'image/png')
                 
-                # Gemini Vision API로 이미지 분석 (옵션이 활성화되고 지원 포맷인 경우만)
+                # Gemini Vision API로 이미지 분석 (모드가 "on"이고 지원 포맷인 경우만)
                 description = None
-                if self._analyze_images and mime_type:  # 분석 옵션 확인 + None이면 Gemini 미지원 포맷
+                analyzed = False
+                if self._analyze_mode == "on" and mime_type:  # 분석 모드 확인 + None이면 Gemini 미지원 포맷
+                    analyzed = True  # 분석 시도함
                     try:
                         from .. import image_analyzer
                         if image_analyzer.is_available():
                             description = image_analyzer.analyze_image(image_data, mime_type)
                     except Exception:
                         pass
-                
+
                 # Image 객체 생성
                 image = Image(
                     id=image_id,
                     data=image_data,
                     format=image_format,
                     alt_text=f'Image: {file_name}',
-                    description=description
+                    description=description,
+                    analyzed=analyzed
                 )
                 
                 doc.images[image_id] = image

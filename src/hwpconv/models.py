@@ -131,6 +131,7 @@ class Image:
     height: Optional[int] = None      # 높이 (픽셀)
     alt_text: str = ''                # 대체 텍스트
     description: Optional[str] = None # AI 분석 설명
+    analyzed: bool = False            # 분석 시도 여부
     
     @property
     def base64(self) -> str:
