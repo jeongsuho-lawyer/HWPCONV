@@ -69,15 +69,16 @@ class TableCell:
     paragraphs: List[Paragraph] = field(default_factory=list)
     rowspan: int = 1
     colspan: int = 1
-    
+    image_ids: List[str] = field(default_factory=list)  # 셀 내 이미지 ID 목록
+
     @property
     def text(self) -> str:
         """셀 내 모든 문단의 텍스트"""
         return '\n'.join(p.text for p in self.paragraphs)
-    
+
     def is_empty(self) -> bool:
-        """빈 셀인지 확인"""
-        return not self.text.strip()
+        """빈 셀인지 확인 (이미지가 있으면 비어있지 않음)"""
+        return not self.text.strip() and not self.image_ids
 
 
 @dataclass

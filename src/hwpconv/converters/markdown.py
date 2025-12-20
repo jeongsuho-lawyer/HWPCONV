@@ -105,7 +105,7 @@ class MarkdownConverter(BaseConverter):
                     prev_was_heading = elem.heading_level != HeadingLevel.NONE
                     
             elif isinstance(elem, Table):
-                table_md = self._convert_table(elem)
+                table_md = self._convert_table(elem, doc)
                 if table_md:
                     lines.append(table_md)
                     lines.append('')
@@ -194,25 +194,25 @@ class MarkdownConverter(BaseConverter):
         # 표 구분자만 이스케이프 (다른 마크업은 의도적일 수 있음)
         return text
     
-    def _convert_table(self, table: Table) -> str:
+    def _convert_table(self, table: Table, doc: 'Document' = None) -> str:
         """표 → Markdown"""
         if not table.rows:
             return ''
-        
+
         lines = []
-        
+
         # 컬럼 수 결정
         col_count = table.col_count
         if col_count == 0:
             col_count = max(len(row.cells) for row in table.rows) if table.rows else 0
-        
+
         if col_count == 0:
             return ''
-        
+
         # 각 행 변환
         for i, row in enumerate(table.rows):
             cells = []
-            
+
             for cell in row.cells:
                 # 셀 텍스트 정리
                 cell_text = cell.text
@@ -220,6 +220,22 @@ class MarkdownConverter(BaseConverter):
                 cell_text = cell_text.replace('\n', ' ').strip()
                 # 파이프 이스케이프
                 cell_text = cell_text.replace('|', '\\|')
+
+                # 셀 내 이미지 처리 (Gemini API 설명 포함)
+                if hasattr(cell, 'image_ids') and cell.image_ids:
+                    img_descs = []
+                    for img_id in cell.image_ids:
+                        if doc and img_id in doc.images:
+                            img = doc.images[img_id]
+                            if img.description:
+                                img_descs.append(f'[이미지: {img.description}]')
+                            else:
+                                img_descs.append('[이미지]')
+                        else:
+                            img_descs.append(f'[이미지:{img_id}]')
+                    img_text = ' '.join(img_descs)
+                    cell_text = f'{cell_text} {img_text}'.strip() if cell_text else img_text
+
                 # 빈 셀은 공백으로 (마크다운 렌더러 호환성)
                 cells.append(cell_text if cell_text else ' ')
             

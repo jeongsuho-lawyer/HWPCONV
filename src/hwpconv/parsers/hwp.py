@@ -154,12 +154,28 @@ class HwpParser(BaseParser):
                 section = self._parse_section(data, doc)
                 doc.sections.append(section)
             
-            # 5. 추출된 이미지를 문서 끝에 추가
-            # (HWP 배포용 파일은 CTRL_PICTURE_TABLE이 없을 수 있음)
+            # 5. 인라인으로 삽입되지 않은 이미지를 문서 끝에 추가
+            # (배포용 파일이나 gso/$pic이 없는 경우 대비)
             if doc.sections and doc.images:
+                # 이미 삽입된 이미지 ID 수집
+                inserted_ids = set()
+                for section in doc.sections:
+                    for elem in section.elements:
+                        # 직접 삽입된 이미지
+                        if hasattr(elem, 'id') and elem.id in doc.images:
+                            inserted_ids.add(elem.id)
+                        # 테이블 셀 내 이미지
+                        if hasattr(elem, 'rows'):  # Table
+                            for row in elem.rows:
+                                for cell in row.cells:
+                                    if hasattr(cell, 'image_ids'):
+                                        inserted_ids.update(cell.image_ids)
+
+                # 삽입되지 않은 이미지만 끝에 추가
                 sorted_image_ids = sorted(doc.images.keys())
                 for image_id in sorted_image_ids:
-                    doc.sections[-1].elements.append(doc.images[image_id])
+                    if image_id not in inserted_ids:
+                        doc.sections[-1].elements.append(doc.images[image_id])
             
         finally:
             ole.close()
@@ -435,25 +451,33 @@ class HwpParser(BaseParser):
             elif tag_id == self.HWPTAG_CTRL_HEADER:
                 if len(record_data) >= 4:
                     ctrl_id = struct.unpack('<I', record_data[0:4])[0]
-                    
+
                     if ctrl_id == 0x74626C20:  # 'tbl ' - 표
                         table, consumed = self._parse_table_from_records_v2(records, i)
                         if table and not table.is_empty():
                             section.elements.append(table)
                         i += consumed
-                    
+
                     elif ctrl_id == 0x24706963:  # '$pic' - 그림
                         picture_info, consumed = self._parse_picture_from_records(records, i)
                         if picture_info:
-                            # bin_data_id로 이미지 삽입
                             bin_data_id = picture_info.get('bin_data_id', 0)
                             if bin_data_id > 0:
-                                # BIN0001, BIN0002 형식으로 찾기
                                 image_key = f'BIN{bin_data_id:04X}'
                                 if image_key in doc.images:
                                     section.elements.append(doc.images[image_key])
                         i += consumed
-                    
+
+                    elif ctrl_id == 0x67736F20:  # 'gso ' - General Shape Object (그림 포함)
+                        picture_info, consumed = self._parse_picture_from_records(records, i)
+                        if picture_info:
+                            bin_data_id = picture_info.get('bin_data_id', 0)
+                            if bin_data_id > 0:
+                                image_key = f'BIN{bin_data_id:04X}'
+                                if image_key in doc.images:
+                                    section.elements.append(doc.images[image_key])
+                        i += consumed
+
                     else:
                         i += 1
                 else:
@@ -502,20 +526,34 @@ class HwpParser(BaseParser):
         return records
     
     def _parse_para_header(self, data: bytes) -> dict:
-        """PARA_HEADER 레코드 파싱"""
-        info = {'char_count': 0, 'para_shape_id': 0}
-        
+        """PARA_HEADER 레코드 파싱 (HWP 5.0 사양서 기준)
+
+        Layout:
+        - offset 0-3: 텍스트 문자 수 (bit 31: 마스크)
+        - offset 4-7: 컨트롤 마스크
+        - offset 8-9: 문단 모양 ID
+        - offset 10: 스타일 ID
+        - offset 11: 단 나누기 종류
+        - offset 12-13: 글자모양 정보 수 (char_shape_count)
+        - offset 14-15: 영역태그 정보 수
+        - offset 16-17: 줄 정보 수
+        """
+        info = {'char_count': 0, 'para_shape_id': 0, 'char_shape_count': 0}
+
         try:
             if len(data) >= 4:
                 char_count = struct.unpack('<I', data[0:4])[0]
                 info['char_count'] = char_count & 0x7FFFFFFF
                 info['is_last'] = bool(char_count & 0x80000000)
-            
+
             if len(data) >= 10:
                 info['para_shape_id'] = struct.unpack('<H', data[8:10])[0]
+
+            if len(data) >= 14:
+                info['char_shape_count'] = struct.unpack('<H', data[12:14])[0]
         except Exception:
             pass
-        
+
         return info
     
     def _parse_para_char_shape(self, data: bytes, count: int = 0) -> List[Tuple[int, int]]:
@@ -793,104 +831,159 @@ class HwpParser(BaseParser):
         return HeadingLevel.NONE
     
     def _parse_table_from_records_v2(self, records: List[Tuple[int, bytes, int]], start_idx: int) -> Tuple[Table, int]:
-        """레코드 리스트에서 표 파싱 (셀 위치/병합 정보 포함)
-        
-        구조: CTRL_HEADER → TABLE → LIST_HEADERs→ PARAs
-        LIST_HEADER에서 row, col, rowspan, colspan 정보 추출
+        """레코드 리스트에서 표 파싱 (가이드 문서 기준 - level 기반 종료)
+
+        구조: CTRL_HEADER → TABLE → LIST_HEADERs → PARAs
+        핵심: level이 base_level 이하로 떨어지면 표 종료
         """
         if start_idx >= len(records):
             return Table(), 0
-        
+
         base_level = records[start_idx][2]  # CTRL_HEADER의 level
         table = Table()
-        cells = []  # {'row': int, 'col': int, 'rowspan': int, 'colspan': int, 'paragraphs': []}
+        cells = []
         current_cell = None
-        consumed = 1  # CTRL_HEADER
-        
+
         try:
             i = start_idx + 1
-            table_info = None
             row_count = 0
             col_count = 0
-            
+            total_cells = 0
+
             while i < len(records):
                 tag_id, record_data, level = records[i]
-                
-                # level이 base_level 이하면 표 종료
+
+                # level이 base_level 이하면 표 종료 (가이드 핵심 원칙)
                 if level <= base_level:
                     break
-                
+
                 # TABLE 레코드에서 row/col 읽기
                 if tag_id == self.HWPTAG_TABLE:
                     if len(record_data) >= 8:
                         row_count = struct.unpack('<H', record_data[4:6])[0]
                         col_count = struct.unpack('<H', record_data[6:8])[0]
                         table.col_count = col_count
-                        table_info = {'rows': row_count, 'cols': col_count}
-                        
+                        total_cells = row_count * col_count
+
                         # 행/셀 초기화
                         for _ in range(row_count):
                             row = TableRow()
                             for _ in range(col_count):
                                 row.cells.append(TableCell())
                             table.rows.append(row)
-                    consumed += 1
-                
-                elif tag_id == self.HWPTAG_LIST_HEADER:
+                    i += 1
+                    continue
+
+                # LIST_HEADER: 새 셀 시작
+                if tag_id == self.HWPTAG_LIST_HEADER:
                     # 이전 셀 저장
                     if current_cell is not None:
                         cells.append(current_cell)
-                    
-                    # 셀 개수 확인 - 모든 셀을 읽었으면 종료
-                    if table_info and len(cells) >= row_count * col_count:
+
+                    # 모든 셀을 읽었으면 종료
+                    if total_cells > 0 and len(cells) >= total_cells:
                         break
-                    
+
                     current_cell = {'paragraphs': []}
-                    consumed += 1
-                
-                elif tag_id == self.HWPTAG_PARA_HEADER:
-                    if current_cell is not None:
-                        # 셀 내 문단
-                        para_info = self._parse_para_header(record_data)
-                        text = ''
-                        char_positions = []
-                        
-                        # 다음 PARA_TEXT, PARA_CHAR_SHAPE 찾기
-                        j = i + 1
-                        while j < len(records):
-                            next_tag, next_data, next_level = records[j]
-                            
-                            if next_tag == self.HWPTAG_PARA_TEXT:
-                                text, _ = self._extract_text_with_ctrls(next_data, para_info.get('char_count', 0))
-                                consumed += 1
-                            elif next_tag == self.HWPTAG_PARA_CHAR_SHAPE:
-                                char_shape_count = para_info.get('char_shape_count', 0)
-                                char_positions = self._parse_para_char_shape(next_data, char_shape_count)
-                                consumed += 1
-                            elif next_tag in (self.HWPTAG_PARA_HEADER, self.HWPTAG_LIST_HEADER):
+                    i += 1
+                    continue
+
+                # PARA_HEADER: 셀 내 문단
+                if tag_id == self.HWPTAG_PARA_HEADER and current_cell is not None:
+                    para_info = self._parse_para_header(record_data)
+                    text = ''
+                    char_positions = []
+                    para_level = level
+
+                    # 다음 레코드들에서 PARA_TEXT, PARA_CHAR_SHAPE 찾기
+                    j = i + 1
+                    while j < len(records):
+                        next_tag, next_data, next_level = records[j]
+
+                        # 문단 종료 조건: 같거나 낮은 레벨의 PARA_HEADER/LIST_HEADER
+                        if next_tag in (self.HWPTAG_PARA_HEADER, self.HWPTAG_LIST_HEADER):
+                            if next_level <= para_level:
                                 break
-                            elif next_level <= base_level:
-                                break
-                            else:
-                                consumed += 1
+
+                        # level이 base_level 이하면 표 종료
+                        if next_level <= base_level:
+                            break
+
+                        if next_tag == self.HWPTAG_PARA_TEXT:
+                            text, _ = self._extract_text_with_ctrls(next_data, para_info.get('char_count', 0))
+                        elif next_tag == self.HWPTAG_PARA_CHAR_SHAPE:
+                            char_shape_count = para_info.get('char_shape_count', 0)
+                            char_positions = self._parse_para_char_shape(next_data, char_shape_count)
+                        elif next_tag == self.HWPTAG_CTRL_HEADER:
+                            # 셀 내 중첩 개체 처리
+                            if len(next_data) >= 4:
+                                nested_ctrl_id = struct.unpack('<I', next_data[0:4])[0]
+
+                                # gso 또는 $pic인 경우 이미지 추출
+                                if nested_ctrl_id in (0x67736F20, 0x24706963):  # 'gso ' or '$pic'
+                                    picture_info, pic_consumed = self._parse_picture_from_records(records, j)
+                                    if picture_info:
+                                        bin_data_id = picture_info.get('bin_data_id', 0)
+                                        if bin_data_id > 0:
+                                            # 이미지 ID 저장 (나중에 처리)
+                                            if 'images' not in current_cell:
+                                                current_cell['images'] = []
+                                            current_cell['images'].append(f'BIN{bin_data_id:04X}')
+                                    j += pic_consumed
+                                    continue
+
+                                # 중첩 테이블인 경우 내부 텍스트 추출
+                                elif nested_ctrl_id == 0x74626C20:  # 'tbl '
+                                    nested_level = next_level
+                                    nested_texts = []
+                                    j += 1
+                                    while j < len(records):
+                                        n_tag, n_data, n_level = records[j]
+                                        if n_level <= nested_level:
+                                            break
+                                        # 중첩 테이블 내 PARA_TEXT에서 텍스트 추출
+                                        if n_tag == self.HWPTAG_PARA_TEXT:
+                                            n_text, _ = self._extract_text_with_ctrls(n_data, 0)
+                                            if n_text.strip():
+                                                nested_texts.append(n_text.strip())
+                                        j += 1
+                                    # 추출된 텍스트를 현재 셀에 추가
+                                    if nested_texts:
+                                        if text:
+                                            text += ' ' + ' '.join(nested_texts)
+                                        else:
+                                            text = ' '.join(nested_texts)
+                                    continue
+
+                            # 그 외 중첩 개체 - 스킵
+                            nested_level = next_level
                             j += 1
-                        
-                        if text.strip():
-                            para = self._create_paragraph(text, char_positions, para_info)
-                            current_cell['paragraphs'].append(para)
-                    consumed += 1
-                
-                else:
-                    consumed += 1
-                
+                            while j < len(records):
+                                _, _, skip_level = records[j]
+                                if skip_level <= nested_level:
+                                    break
+                                j += 1
+                            continue  # 중첩 개체 스킵 후 계속
+
+                        j += 1
+
+                    if text.strip():
+                        para = self._create_paragraph(text, char_positions, para_info)
+                        current_cell['paragraphs'].append(para)
+
+                    # j까지 처리했으므로 i를 j로 이동 (j는 다음 처리할 레코드)
+                    i = j
+                    continue
+
+                # 그 외 레코드 (CTRL_HEADER 포함) - 스킵하고 계속
                 i += 1
-            
+
             # 마지막 셀 저장
             if current_cell is not None:
                 cells.append(current_cell)
-            
+
             # 셀을 표에 순차 배치
-            if table_info and table.rows:
+            if table.rows:
                 for idx, cell_data in enumerate(cells):
                     if idx >= len(table.rows) * table.col_count:
                         break
@@ -898,10 +991,15 @@ class HwpParser(BaseParser):
                     col_idx = idx % table.col_count
                     if row_idx < len(table.rows):
                         table.rows[row_idx].cells[col_idx].paragraphs = cell_data['paragraphs']
-        
+                        # 셀 내 이미지 ID 저장
+                        if 'images' in cell_data:
+                            table.rows[row_idx].cells[col_idx].image_ids = cell_data['images']
+
         except Exception:
             pass
-        
+
+        # consumed = 처리한 레코드 수 (start_idx부터 i까지)
+        consumed = i - start_idx
         return table, consumed
     
     def _parse_table_from_ctrl(self, records: List[Tuple[int, bytes, int]], start_idx: int) -> Tuple[Table, int]:
@@ -1019,48 +1117,58 @@ class HwpParser(BaseParser):
         return table, consumed
     
     def _parse_picture_from_records(self, records: List[Tuple[int, bytes, int]], start_idx: int) -> Tuple[dict, int]:
-        """레코드 리스트에서 그림 파싱 (사용자 가이드 기준)
-        
-        구조: CTRL_HEADER → SHAPE_COMPONENT → SHAPE_COMPONENT_PICTURE
-        bin_data_id 추출이 목표
+        """레코드 리스트에서 그림 파싱 (HWP 5.0 사양서 기준)
+
+        구조: CTRL_HEADER($pic) → SHAPE_COMPONENT → SHAPE_COMPONENT_PICTURE
+        SHAPE_COMPONENT_PICTURE 레코드에서 bin_data_id 추출
+
+        SHAPE_COMPONENT_PICTURE 레코드 구조 (가이드 문서 기준):
+        - offset 0-3: border_color
+        - offset 4-7: border_thickness
+        - offset 8-11: border_attr
+        - offset 12-27: img_rect_x (4 * 4bytes)
+        - offset 28-43: img_rect_y (4 * 4bytes)
+        - offset 44-59: crop (4 * 4bytes)
+        - offset 60-67: inner_margins (4 * 2bytes)
+        - offset 68: brightness
+        - offset 69: contrast
+        - offset 70: effect
+        - offset 71-72: bin_data_id ★
         """
         if start_idx >= len(records):
             return None, 0
-        
+
         base_level = records[start_idx][2]
-        consumed = 1  # CTRL_HEADER
         bin_data_id = 0
-        
+
         try:
             i = start_idx + 1
-            
+
             while i < len(records):
                 tag_id, record_data, level = records[i]
-                
+
                 # level이 base_level 이하면 그림 종료
                 if level <= base_level:
                     break
-                
-                # SHAPE_COMPONENT_PICTURE에서 bin_data_id 추출
-                # 사용자 가이드 line 533-616
-                if tag_id == 85:  # HWPTAG_SHAPE_COMPONENT_PICTURE의 일반적인 값
-                    # bin_data_id는 오프셋 74에 위치 (사용자 가이드 line 581)
-                    # 하지만 정확한 파싱은: brightness(1) + contrast(1) + effect(1) + bin_data_id(2)
-                    # = 그림 정보 5바이트 중 마지막 2바이트
-                    
-                    # 간단히: 데이터에서 UINT16 찾기
-                    if len(record_data) >= 76:
-                        # offset 74에서 2바이트 읽기
+
+                # HWPTAG_SHAPE_COMPONENT_PICTURE = 0x055 = 85
+                # 또는 normalized 값 35 (85 - 50, 만약 shifted라면)
+                if tag_id == 85 or tag_id == 35:
+                    # bin_data_id는 offset 71-72에 위치
+                    if len(record_data) >= 73:
+                        bin_data_id = struct.unpack('<H', record_data[71:73])[0]
+                    # 다른 오프셋 시도 (일부 HWP 버전 호환)
+                    elif len(record_data) >= 76:
                         bin_data_id = struct.unpack('<H', record_data[74:76])[0]
-                    consumed += 1
-                    break  # bin_data_id 얻었으므로 종료
-                
-                consumed += 1
+                    break
+
                 i += 1
-        
+
         except Exception:
             pass
-        
+
+        # consumed = 처리한 레코드 수
+        consumed = i - start_idx
         return {'bin_data_id': bin_data_id}, consumed
     
     def _parse_ctrl_header(self, data: bytes) -> dict:

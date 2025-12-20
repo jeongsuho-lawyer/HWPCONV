@@ -95,17 +95,23 @@ def analyze_image(image_bytes: bytes, mime_type: str = "image/png") -> Optional[
         ])
         
         elapsed = time.time() - start_time
-        log_msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 🖼️ 이미지 분석 완료 ({elapsed:.2f}초, {len(image_bytes)} bytes, {mime_type})\n"
-        print(log_msg.strip())
+        log_msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 이미지 분석 완료 ({elapsed:.2f}초, {len(image_bytes)} bytes, {mime_type})\n"
+        try:
+            print(log_msg.strip())
+        except UnicodeEncodeError:
+            pass  # Windows 콘솔 인코딩 문제 무시
         with open(_get_log_path(), 'a', encoding='utf-8') as f:
             f.write(log_msg)
-        
+
         return response.text.strip()
-    
+
     except Exception as e:
         elapsed = time.time() - start_time
-        log_msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ❌ 이미지 분석 실패 ({elapsed:.2f}초) - {str(e)}\n"
-        print(log_msg.strip())
+        log_msg = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 이미지 분석 실패 ({elapsed:.2f}초) - {str(e)}\n"
+        try:
+            print(log_msg.strip())
+        except UnicodeEncodeError:
+            pass  # Windows 콘솔 인코딩 문제 무시
         with open(_get_log_path(), 'a', encoding='utf-8') as f:
             f.write(log_msg)
             f.write(f"{traceback.format_exc()}\n")
