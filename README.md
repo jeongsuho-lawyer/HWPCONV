@@ -109,4 +109,6 @@ pyinstaller HwpConverterPro.spec
 
 ## 라이선스
 
-이 프로그램은 내부 업무용으로 제작되었습니다.
+MIT License
+
+본 소프트웨어는 한글과컴퓨터의 HWP 문서 파일(.hwp) 공개 문서를 참고하여 개발되었습니다.
