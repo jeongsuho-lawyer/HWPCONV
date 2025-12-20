@@ -8,9 +8,7 @@ EXCLUDES = [
     'numpy', 'pandas', 'scipy', 'matplotlib',
     'IPython', 'jupyter', 'notebook',
     # 기타 불필요 모듈
-    'xml.etree.ElementTree.doctest',
-    'lib2to3', 'distutils', 'setuptools',
-    'pkg_resources',
+    'lib2to3',
     # tkinter 관련 불필요 항목
     'tkinter.test', 'tkinter.tix',
     # SSL/네트워크 테스트

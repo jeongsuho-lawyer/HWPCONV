@@ -1,0 +1,16 @@
+# Auto-generated
+*.pyc
+__pycache__/
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+*.log
+.venv/
+*.hwp
+*.hwpx
+*.pdf
+nul
+HWPCONV_Output/
+.claude/
+
