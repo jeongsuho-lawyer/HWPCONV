@@ -29,7 +29,7 @@
 3. `이미지 분석` 옵션을 `사용`으로 변경
 4. 파일 추가 시 이미지가 자동 분석됨
 
-API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 무료로 발급받을 수 있습니다.
+API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 **무료로 발급**받을 수 있습니다. 무료 API 키로도 이미지 분석 기능을 정상적으로 사용할 수 있습니다 (분당 15회 요청 제한).
 
 ### 출력 예시
 
