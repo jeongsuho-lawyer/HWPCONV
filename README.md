@@ -31,6 +31,8 @@
 
 API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 **무료로 발급**받을 수 있습니다. 무료 API 키로도 이미지 분석 기능을 정상적으로 사용할 수 있습니다 (분당 15회 요청 제한).
 
+이미지 분석에는 `Gemini 3 Flash Preview` 모델을 사용합니다.
+
 ### 출력 예시
 
 **Markdown 출력:**
