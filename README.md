@@ -1,158 +1,112 @@
-# hwpconv
+# HWP2MD
 
-한글 문서(.hwp, .hwpx)를 Markdown/HTML/Text로 변환하는 Python 라이브러리 및 CLI
+한글 문서(HWP/HWPX)를 Markdown 또는 HTML로 변환하는 Windows 데스크톱 프로그램입니다.
 
 ## 주요 기능
 
-- ✅ **HWPX 파서**: ZIP+XML 형식 완벽 지원
-- ✅ **HWP 파서**: OLE+zlib 바이너리 형식 지원
-- ✅ **Markdown 변환**: 서식, 표, 각주 포함
-- ✅ **HTML 변환**: 스타일 포함 HTML 출력
-- ✅ **이미지 추출**: Base64 인라인 포함 (Claude 등 AI가 직접 볼 수 있음)
-- ✅ **이미지 분석 (선택)**: Gemini Vision API로 이미지 내용 자동 설명
-- ✅ **웹 UI**: 로컬 서버 기반 드래그앤드롭 변환기
-- ✅ **빠른 추출**: Preview 텍스트 활용
+- **HWP/HWPX 변환**: 한글 문서를 Markdown(.md) 또는 HTML(.html)로 변환
+- **드래그 앤 드롭**: 파일이나 폴더를 창에 끌어다 놓으면 자동 변환
+- **이미지 분석**: Google Gemini API를 활용하여 문서 내 이미지 내용을 텍스트로 설명
+- **표 변환**: 문서 내 표를 마크다운/HTML 테이블로 변환
+- **일괄 처리**: 여러 파일을 한 번에 변환하고 저장
+- **파일별 형식 지정**: 각 파일마다 MD/HTML 형식을 개별 지정 가능
 
-## 설치
+## 사용 방법
+
+### 기본 사용
+
+1. `HWP2MD.exe` 실행
+2. 상단에서 변환 형식 선택 (`마크다운` 또는 `HTML`)
+3. HWP/HWPX 파일을 창으로 드래그 앤 드롭
+4. 변환 완료 후 `저장` 또는 `전체 저장` 클릭
+
+### 이미지 분석 기능
+
+문서 내 이미지를 AI가 분석하여 설명 텍스트를 생성합니다.
+
+1. 우측 상단 `설정` 클릭
+2. Google Gemini API 키 입력 후 저장
+3. `이미지 분석` 옵션을 `사용`으로 변경
+4. 파일 추가 시 이미지가 자동 분석됨
+
+API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 무료로 발급받을 수 있습니다.
+
+### 출력 예시
+
+**Markdown 출력:**
+```markdown
+# 문서 제목
+
+본문 내용입니다.
+
+| 항목 | 설명 |
+|------|------|
+| A | 내용1 |
+| B | 내용2 |
+
+> 🖼️ **[이미지]**: 회사 로고 이미지
+```
+
+**이미지 분석 미사용 시:**
+```markdown
+> 🖼️ **[이미지]**: *(이미지 생략)*
+```
+
+## 설치 및 실행
+
+### 실행 파일 (권장)
+
+`HWP2MD.exe` 파일을 다운로드하여 바로 실행하면 됩니다. 별도 설치가 필요 없습니다.
+
+### 소스에서 실행
 
 ```bash
-# 기본 설치
-pip install -e .
-
-# 개발 의존성 포함
-pip install -e ".[dev]"
-
-# 이미지 분석 기능 (선택)
-pip install google-generativeai
+pip install customtkinter tkinterDnD olefile pillow requests
+python run_gui.py
 ```
 
-## CLI 사용법
+### EXE 직접 빌드
 
 ```bash
-# 기본 변환 (Markdown)
-hwpconv document.hwpx -o output.md
-hwpconv document.hwp -o output.md
-
-# HTML 변환
-hwpconv document.hwpx -f html -o output.html
-
-# 텍스트만 추출
-hwpconv document.hwp -f txt
-
-# 빠른 텍스트 추출 (Preview 활용)
-hwpconv document.hwpx --quick
-
-# 이미지 제외
-hwpconv document.hwpx --no-images -o output.md
-
-# 이미지 분석 포함 (Gemini API 필요)
-export GOOGLE_API_KEY="your-api-key"
-hwpconv document.hwpx --analyze-images -o output.md
+pip install pyinstaller
+pyinstaller HwpConverterPro.spec
 ```
 
-## Python API
+빌드 결과: `dist/HWP2MD.exe`
 
-```python
-from hwpconv import HwpxParser, HwpParser, MarkdownConverter, HtmlConverter
+## 시스템 요구사항
 
-# HWPX 파싱
-doc = HwpxParser().parse('document.hwpx')
+- Windows 10 / 11
+- 인터넷 연결 (이미지 분석 기능 사용 시)
 
-# HWP 파싱
-doc = HwpParser().parse('document.hwp')
+## 저장 위치
 
-# Markdown 변환
-md = MarkdownConverter().convert(doc)
-
-# HTML 변환
-html = HtmlConverter().convert(doc)
-
-# 문서 정보
-print(f"문단 수: {doc.total_paragraph_count}")
-print(f"표 개수: {doc.total_table_count}")  
-print(f"이미지 수: {doc.total_image_count}")
-
-# 빠른 텍스트 추출
-text = HwpxParser.quick_extract('document.hwpx')
-text = HwpParser.quick_extract('document.hwp')
-```
-
-## 데스크톱 GUI (Windows 네이티브)
-
-```bash
-# GUI 앱 실행 (브라우저 필요 없음)
-python -m hwpconv.gui
-
-# 또는 설치 후
-hwpconv-gui
-```
-
-GUI 기능:
-- 파일 추가 버튼으로 HWP/HWPX 선택
-- Markdown/HTML/Text 형식 선택
-- 이미지 포함 옵션
-- 일괄 변환 후 폴더 열기
-
-## 웹 UI (선택적, Flask 필요)
-
-```bash
-# Flask 서버 실행
-pip install flask
-python -m hwpconv.server
-
-# 특정 포트로 실행
-python -m hwpconv.server -p 8080
-```
-
-## 이미지 분석 (선택적 기능)
-
-이미지가 포함된 문서를 변환할 때, AI가 이미지 내용을 이해할 수 있도록 설명을 자동 생성합니다.
-
-```python
-from hwpconv import HwpxParser, MarkdownConverter
-from hwpconv.image_analyzer import analyze_document_images
-
-# 문서 파싱
-doc = HwpxParser().parse('document.hwpx')
-
-# 이미지 분석 (Gemini Vision API)
-analyze_document_images(doc, provider='gemini', api_key='your-key')
-
-# 변환 (이미지 설명 포함)
-md = MarkdownConverter(include_images=True).convert(doc)
-```
-
-**지원 AI 제공자:**
-- `gemini` (기본): Google Gemini Vision (무료 티어 제공)
-- `openai`: GPT-4 Vision
-- `anthropic`: Claude Vision
-
-## 지원 형식
-
-| 입력 | 출력 | 상태 |
-|------|------|------|
-| .hwpx (ZIP+XML) | Markdown | ✅ |
-| .hwpx | HTML | ✅ |
-| .hwpx | Text | ✅ |
-| .hwp (OLE) | Markdown | ✅ |
-| .hwp | HTML | ✅ |
-| .hwp | Text | ✅ |
+- 변환된 파일: EXE 실행 폴더 내 `HWPCONV_Output` 폴더
+- 설정 파일: `%APPDATA%\HwpConverter\config.json`
 
 ## 지원 요소
 
-- ✅ 일반 텍스트
-- ✅ 서식 (굵게, 기울임, 밑줄, 취소선)
-- ✅ 제목 레벨 (H1-H6)
-- ✅ 표 (colspan, rowspan)
-- ✅ 각주/미주
-- ✅ 이미지 (Base64 인라인)
-- ⚠️ 글머리 기호/번호 (부분 지원)
+| 요소 | 지원 |
+|------|------|
+| 텍스트 | ✅ |
+| 서식 (굵게, 기울임, 밑줄) | ✅ |
+| 제목 (H1~H6) | ✅ |
+| 표 | ✅ |
+| 이미지 | ✅ |
+| 각주/미주 | ✅ |
+
+## 개인정보 보호
+
+- API 키는 사용자 PC에만 로컬 저장됨
+- 이미지 분석 사용 시에만 해당 이미지가 Google 서버로 전송됨
+- 문서 원본은 외부로 전송되지 않음
+
+## 제작 정보
+
+- **제작**: 법무법인 르네상스 정수호 변호사
+- **연락처**: shj@lawren.co.kr
+- **버전**: 1.0.0
 
 ## 라이선스
 
-MIT License
-
-### 저작권 고지
-
-본 소프트웨어는 한글과컴퓨터 한/글 문서 형식(.hwp, .hwpx)의 구조를 분석하여 
-텍스트 변환 기능을 제공합니다. "한/글" 및 "HWP"는 (주)한글과컴퓨터의 등록상표입니다.
+이 프로그램은 내부 업무용으로 제작되었습니다.
