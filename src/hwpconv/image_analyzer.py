@@ -14,7 +14,7 @@ from . import config as app_config
 SUPPORTED_MIME_TYPES = {'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'}
 
 # Gemini API 엔드포인트
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
 
 # 로그 파일 최대 크기 (1MB)
 MAX_LOG_SIZE = 1 * 1024 * 1024
