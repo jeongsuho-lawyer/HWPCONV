@@ -654,15 +654,20 @@ class HwpParser(BaseParser):
         cleaned_chars = []
         for char in text:
             code = ord(char)
-            
+
+            # UTF-16 서로게이트 문자 제거 (U+D800 ~ U+DFFF)
+            # HWP의 PUA 문자가 잘못 파싱되어 서로게이트로 나타날 수 있음
+            if 0xD800 <= code <= 0xDFFF:
+                continue
+
             # HWP 파싱 오류로 나타나는 특정 CJK 한자들만 제거
             # 潴(U+6F74), 景(U+666F), 慴(U+6174)
             # 주의: 한글 옛 자모(ᄒᆞᆫ글 등)는 원본 문서의 정상 텍스트이므로 유지
             if code in {0x6F74, 0x666F, 0x6174}:
                 continue
-            
+
             cleaned_chars.append(char)
-        
+
         return ''.join(cleaned_chars)
     
     def _is_valid_paragraph(self, text: str) -> bool:

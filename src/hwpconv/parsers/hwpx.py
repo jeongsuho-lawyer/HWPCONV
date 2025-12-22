@@ -437,14 +437,20 @@ class HwpxParser(BaseParser):
         filtered_chars = []
         for char in text:
             code = ord(char)
+
+            # UTF-16 서로게이트 문자 제거 (U+D800 ~ U+DFFF)
+            # HWP의 PUA 문자가 잘못 파싱되어 서로게이트로 나타날 수 있음
+            if 0xD800 <= code <= 0xDFFF:
+                continue
+
             if code in GRAPHIC_MARKERS:
                 continue
             # PUA 영역의 다른 마커들도 안전하게 제거 (사용자 정의 영역 제외)
             if 0xe000 <= code <= 0xf8ff:
                 continue
-                
+
             filtered_chars.append(char)
-            
+
         return ''.join(filtered_chars)
     
     def _extract_footnotes(self, p_elem, doc: Document) -> None:
