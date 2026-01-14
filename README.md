@@ -74,18 +74,20 @@ API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 **�
 ### 소스에서 실행
 
 ```bash
-pip install customtkinter tkinterDnD olefile pillow requests
+pip install -r requirements.txt
 python run_gui.py
 ```
 
 ### EXE 직접 빌드
 
 ```bash
-pip install pyinstaller
+pip install -r requirements.txt
 pyinstaller HwpConverterPro.spec
 ```
 
 빌드 결과: `dist/HWP2MD.exe`
+
+> **참고**: `requirements.txt`에 의존성 버전이 고정되어 있어 동일한 빌드 환경을 재현할 수 있습니다.
 
 ## 시스템 요구사항
 
