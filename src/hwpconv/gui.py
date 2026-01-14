@@ -14,8 +14,315 @@ except ImportError:
 from tkinter import filedialog, messagebox, simpledialog
 import tkinter.font as tkfont
 import tkinter as tk
+import webbrowser
 
 from . import config as app_config
+
+
+class SettingsDialog(tk.Toplevel):
+    """API 키 및 모델 설정 다이얼로그"""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("설정")
+        self.geometry("480x520")
+        self.resizable(False, False)
+        self.configure(bg=COLORS['bg'])
+
+        # 부모 창 위에 표시
+        self.transient(parent)
+        self.grab_set()
+
+        # 결과 저장
+        self.result = None
+        self.selected_model = tk.StringVar(value=app_config.get_model())
+        self.custom_model = tk.StringVar()
+
+        # 현재 저장된 모델이 기본 목록에 없으면 사용자 정의로 표시
+        current_model = app_config.get_model()
+        is_predefined = any(m[0] == current_model for m in app_config.GEMINI_MODELS)
+        if not is_predefined:
+            self.selected_model.set("custom")
+            self.custom_model.set(current_model)
+
+        self._create_widgets()
+
+        # 창 중앙 배치
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+
+    def _create_widgets(self):
+        # 메인 프레임
+        main = ctk.CTkFrame(self, fg_color="transparent")
+        main.pack(fill="both", expand=True, padx=24, pady=20)
+
+        # === API 키 섹션 ===
+        ctk.CTkLabel(
+            main, text="Gemini API 키",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=COLORS['text']
+        ).pack(anchor="w")
+
+        self._has_existing_key = bool(app_config.get_api_key())
+        self._editing_key = not self._has_existing_key  # 키 없으면 바로 편집 모드
+
+        # 키 컨테이너 (고정 높이)
+        key_container = ctk.CTkFrame(main, fg_color="transparent", height=40)
+        key_container.pack(fill="x", pady=(8, 0))
+        key_container.pack_propagate(False)
+
+        # 키 상태 표시 프레임
+        self.key_status_frame = ctk.CTkFrame(key_container, fg_color="transparent")
+
+        self.key_status_label = ctk.CTkLabel(
+            self.key_status_frame,
+            text="✓ API 키가 설정되어 있습니다",
+            font=ctk.CTkFont(size=12),
+            text_color=COLORS['success']
+        )
+        self.key_status_label.pack(side="left")
+
+        self.change_key_btn = ctk.CTkButton(
+            self.key_status_frame, text="변경", width=50, height=28,
+            fg_color=COLORS['border'], text_color=COLORS['text'],
+            hover_color=COLORS['bg_subtle'],
+            command=self._toggle_key_edit
+        )
+        self.change_key_btn.pack(side="left", padx=(12, 0))
+
+        # 키 입력 프레임
+        self.key_input_frame = ctk.CTkFrame(key_container, fg_color="transparent")
+
+        self.api_key_entry = ctk.CTkEntry(
+            self.key_input_frame, placeholder_text="새 API 키 입력",
+            width=310, height=36
+        )
+        self.api_key_entry.pack(side="left", fill="x", expand=True)
+
+        self.cancel_key_btn = ctk.CTkButton(
+            self.key_input_frame, text="취소", width=50, height=36,
+            fg_color=COLORS['border'], text_color=COLORS['text'],
+            hover_color=COLORS['bg_subtle'],
+            command=self._cancel_key_edit
+        )
+        self.cancel_key_btn.pack(side="left", padx=(8, 0))
+
+        # 초기 상태 표시
+        if self._has_existing_key and not self._editing_key:
+            self.key_status_frame.pack(fill="x", expand=True)
+        else:
+            self.key_input_frame.pack(fill="x", expand=True)
+            self.cancel_key_btn.pack_forget()  # 신규 입력 시 취소 버튼 숨김
+
+        ctk.CTkLabel(
+            main,
+            text="이미지 분석에 사용됩니다. Google AI Studio에서 발급받으세요.",
+            font=ctk.CTkFont(size=11),
+            text_color=COLORS['text_secondary']
+        ).pack(anchor="w", pady=(4, 0))
+
+        # 구분선
+        ctk.CTkFrame(main, height=1, fg_color=COLORS['border']).pack(fill="x", pady=20)
+
+        # === 모델 선택 섹션 ===
+        ctk.CTkLabel(
+            main, text="이미지 분석 모델",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=COLORS['text']
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            main,
+            text="무료 API 사용 시 1분에 분석할 수 있는 이미지 수가 제한됩니다.",
+            font=ctk.CTkFont(size=11),
+            text_color=COLORS['text_secondary']
+        ).pack(anchor="w", pady=(4, 8))
+
+        # 모델 라디오 버튼들
+        for model_id, name, desc in app_config.GEMINI_MODELS:
+            # 무료 제한 정보 추가
+            limit = app_config.GEMINI_FREE_LIMITS.get(model_id, "?")
+            display_text = f"{name}  -  {desc} (무료: 분당 이미지 {limit}개)"
+            rb = ctk.CTkRadioButton(
+                main, text=display_text,
+                variable=self.selected_model, value=model_id,
+                font=ctk.CTkFont(size=12),
+                text_color=COLORS['text'],
+                command=self._on_model_change
+            )
+            rb.pack(anchor="w", pady=3)
+
+        # 직접 입력 옵션
+        custom_frame = ctk.CTkFrame(main, fg_color="transparent")
+        custom_frame.pack(fill="x", pady=(8, 0))
+
+        ctk.CTkRadioButton(
+            custom_frame, text="직접 입력:",
+            variable=self.selected_model, value="custom",
+            font=ctk.CTkFont(size=12),
+            text_color=COLORS['text'],
+            command=self._on_model_change
+        ).pack(side="left")
+
+        self.custom_entry = ctk.CTkEntry(
+            custom_frame,
+            textvariable=self.custom_model,
+            placeholder_text="예: gemini-4-flash-preview",
+            width=260, height=32
+        )
+        self.custom_entry.pack(side="left", padx=(8, 0))
+
+        # 직접 입력 초기 상태
+        self._on_model_change()
+
+        # 도움말 링크
+        help_frame = ctk.CTkFrame(main, fg_color="transparent")
+        help_frame.pack(fill="x", pady=(12, 0))
+
+        help_label = ctk.CTkLabel(
+            help_frame,
+            text="📖 사용 가능한 모델 목록 보기",
+            font=ctk.CTkFont(size=11, underline=True),
+            text_color=COLORS['primary'],
+            cursor="hand2"
+        )
+        help_label.pack(side="left")
+        help_label.bind("<Button-1>", lambda e: webbrowser.open("https://ai.google.dev/gemini-api/docs/models"))
+
+        # 테스트 버튼
+        self.test_btn = ctk.CTkButton(
+            help_frame, text="연결 테스트",
+            width=90, height=28,
+            font=ctk.CTkFont(size=11),
+            command=self._test_connection
+        )
+        self.test_btn.pack(side="right")
+
+        self.test_result = ctk.CTkLabel(
+            main, text="",
+            font=ctk.CTkFont(size=11),
+            text_color=COLORS['text_secondary']
+        )
+        self.test_result.pack(anchor="w", pady=(8, 0))
+
+        # 구분선
+        ctk.CTkFrame(main, height=1, fg_color=COLORS['border']).pack(fill="x", pady=20)
+
+        # === 버튼 ===
+        btn_frame = ctk.CTkFrame(main, fg_color="transparent")
+        btn_frame.pack(fill="x")
+
+        ctk.CTkButton(
+            btn_frame, text="취소", width=100, height=36,
+            fg_color=COLORS['border'], text_color=COLORS['text'],
+            hover_color=COLORS['bg_subtle'],
+            command=self.destroy
+        ).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            btn_frame, text="저장", width=100, height=36,
+            fg_color=COLORS['primary'],
+            command=self._save
+        ).pack(side="right")
+
+    def _toggle_key_edit(self):
+        """API 키 편집 모드 전환"""
+        self._editing_key = True
+        self.key_status_frame.pack_forget()
+        self.key_input_frame.pack(fill="x", expand=True)
+        self.cancel_key_btn.pack(side="left", padx=(8, 0))
+
+    def _cancel_key_edit(self):
+        """API 키 편집 취소"""
+        self._editing_key = False
+        self.api_key_entry.delete(0, "end")
+        self.key_input_frame.pack_forget()
+        self.key_status_frame.pack(fill="x", expand=True)
+
+    def _on_model_change(self):
+        """모델 선택 변경 시 직접 입력란 활성화/비활성화"""
+        if self.selected_model.get() == "custom":
+            self.custom_entry.configure(state="normal")
+        else:
+            self.custom_entry.configure(state="disabled")
+
+    def _test_connection(self):
+        """선택한 모델로 API 연결 테스트"""
+        if self._editing_key:
+            api_key = self.api_key_entry.get().strip()
+        else:
+            api_key = app_config.get_api_key()
+
+        if not api_key:
+            self.test_result.configure(text="❌ API 키를 입력하세요", text_color=COLORS['error'])
+            return
+
+        model_id = self.selected_model.get()
+        if model_id == "custom":
+            model_id = self.custom_model.get().strip()
+            if not model_id:
+                self.test_result.configure(text="❌ 모델 ID를 입력하세요", text_color=COLORS['error'])
+                return
+
+        self.test_btn.configure(state="disabled", text="테스트 중...")
+        self.test_result.configure(text="", text_color=COLORS['text_secondary'])
+        self.update()
+
+        def do_test():
+            try:
+                import requests
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={api_key}"
+                response = requests.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={"contents": [{"parts": [{"text": "Hi"}]}]},
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    result_text = f"✅ 연결 성공 ({model_id})"
+                    result_color = COLORS['success']
+                elif response.status_code == 404:
+                    result_text = f"❌ 모델을 찾을 수 없음: {model_id}"
+                    result_color = COLORS['error']
+                elif response.status_code == 400:
+                    # 400이어도 모델은 존재함 (요청 형식 문제일 수 있음)
+                    result_text = f"✅ 모델 확인됨 ({model_id})"
+                    result_color = COLORS['success']
+                else:
+                    result_text = f"❌ 오류: {response.status_code}"
+                    result_color = COLORS['error']
+            except Exception as e:
+                result_text = f"❌ 연결 실패: {str(e)[:30]}"
+                result_color = COLORS['error']
+
+            self.after(0, lambda: self._show_test_result(result_text, result_color))
+
+        threading.Thread(target=do_test, daemon=True).start()
+
+    def _show_test_result(self, text, color):
+        self.test_result.configure(text=text, text_color=color)
+        self.test_btn.configure(state="normal", text="연결 테스트")
+
+    def _save(self):
+        """설정 저장"""
+        # API 키 저장 (편집 모드일 때만)
+        if self._editing_key:
+            api_key = self.api_key_entry.get().strip()
+            app_config.save_api_key(api_key)
+
+        # 모델 저장
+        model_id = self.selected_model.get()
+        if model_id == "custom":
+            model_id = self.custom_model.get().strip()
+            if not model_id:
+                model_id = app_config.DEFAULT_MODEL
+
+        app_config.save_model(model_id)
+
+        self.result = True
+        self.destroy()
 
 # 프리미엄 컨러 팔레트 (파란색 계열 통일)
 COLORS = {
@@ -274,7 +581,7 @@ class HwpConverterApp(tkinterDnD.Tk):
         about_text = """HWP2MD v1.0.0
 
 HWP/HWPX 문서를 Markdown/HTML로 변환합니다.
-이미지 분석: Gemini 3 Flash Preview
+Image analysis powered by Google Gemini
 
 제작: 법무법인 르네상스 정수호 변호사
 연락처: shj@lawren.co.kr
@@ -285,22 +592,10 @@ HWP/HWPX 문서를 Markdown/HTML로 변환합니다.
 
     def _show_settings(self):
         """설정 다이얼로그 표시"""
-        current_key = app_config.get_api_key()
-        masked = current_key[:8] + "..." if current_key else "(미설정)"
-        
-        new_key = simpledialog.askstring(
-            "API 설정",
-            f"Gemini API 키를 입력하세요.\n현재: {masked}\n\n(이미지 분석에 사용됩니다)",
-            parent=self
-        )
-        
-        if new_key is not None:  # 취소가 아닌 경우
-            if new_key.strip():
-                app_config.save_api_key(new_key.strip())
-                messagebox.showinfo("저장 완료", "API 키가 저장되었습니다.")
-            else:
-                app_config.save_api_key("")
-                messagebox.showinfo("초기화", "API 키가 삭제되었습니다.")
+        dialog = SettingsDialog(self)
+        self.wait_window(dialog)
+
+        if dialog.result:
             self._update_footer_status()
             self._update_image_analysis_state()
     

@@ -13,8 +13,14 @@ from . import config as app_config
 # 지원되는 MIME 타입 (Gemini API)
 SUPPORTED_MIME_TYPES = {'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'}
 
-# Gemini API 엔드포인트
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent"
+# Gemini API 엔드포인트 (모델명은 동적으로 설정)
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def _get_api_url() -> str:
+    """현재 설정된 모델에 맞는 API URL 반환"""
+    model_id = app_config.get_model()
+    return f"{GEMINI_API_BASE}/{model_id}:generateContent"
 
 # 로그 파일 최대 크기 (1MB)
 MAX_LOG_SIZE = 1 * 1024 * 1024
@@ -109,8 +115,9 @@ def analyze_image(image_bytes: bytes, mime_type: str = "image/png") -> Optional[
         }
 
         # API 호출
+        api_url = _get_api_url()
         response = requests.post(
-            f"{GEMINI_API_URL}?key={api_key}",
+            f"{api_url}?key={api_key}",
             headers={"Content-Type": "application/json"},
             json=request_body,
             timeout=30

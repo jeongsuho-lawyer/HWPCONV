@@ -6,6 +6,26 @@ import os
 import json
 from pathlib import Path
 
+# 기본 제공 Gemini 모델 목록
+# (model_id, 표시명, 설명)
+# 무료 티어 제한은 변동될 수 있음 - 공식 문서 참조: https://ai.google.dev/gemini-api/docs/rate-limits
+GEMINI_MODELS = [
+    ("gemini-3-flash-preview", "Gemini 3 Flash", "최신 고성능"),
+    ("gemini-2.5-flash", "Gemini 2.5 Flash", "균형잡힌 성능"),
+    ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite", "초고속"),
+    ("gemini-2.0-flash", "Gemini 2.0 Flash", "안정적"),
+]
+
+# 무료 티어 제한 정보 (분당 이미지 분석 횟수)
+GEMINI_FREE_LIMITS = {
+    "gemini-3-flash-preview": 10,
+    "gemini-2.5-flash": 15,
+    "gemini-2.5-flash-lite": 30,
+    "gemini-2.0-flash": 15,
+}
+
+DEFAULT_MODEL = "gemini-3-flash-preview"
+
 
 def get_config_dir() -> Path:
     """설정 파일 디렉토리 반환 (Windows: %APPDATA%\HwpConverter)"""
@@ -59,3 +79,25 @@ def save_api_key(api_key: str):
 def has_api_key() -> bool:
     """API 키가 설정되어 있는지 확인"""
     return bool(get_api_key())
+
+
+def get_model() -> str:
+    """저장된 Gemini 모델 ID 반환 (없으면 기본값)"""
+    config = load_config()
+    return config.get('gemini_model', DEFAULT_MODEL)
+
+
+def save_model(model_id: str):
+    """Gemini 모델 ID 저장"""
+    config = load_config()
+    config['gemini_model'] = model_id
+    save_config(config)
+
+
+def get_model_display_name(model_id: str) -> str:
+    """모델 ID에 해당하는 표시명 반환"""
+    for mid, name, _ in GEMINI_MODELS:
+        if mid == model_id:
+            return name
+    # 사용자 정의 모델인 경우 ID 그대로 반환
+    return model_id
