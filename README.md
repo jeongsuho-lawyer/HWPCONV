@@ -1,5 +1,8 @@
 # HWP2MD
 
+[![GitHub release](https://img.shields.io/github/v/release/jeongsuho-lawyer/HWPCONV)](https://github.com/jeongsuho-lawyer/HWPCONV/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 한글 문서(HWP/HWPX)를 Markdown 또는 HTML로 변환하는 Windows 데스크톱 프로그램입니다.
 
 ## 주요 기능
