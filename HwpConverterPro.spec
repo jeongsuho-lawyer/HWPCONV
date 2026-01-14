@@ -77,7 +77,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='HWP2MD',
+    name='HWPCONV',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,

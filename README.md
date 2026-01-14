@@ -1,33 +1,45 @@
-# HWP2MD
+# HWPCONV
 
 [![GitHub release](https://img.shields.io/github/v/release/jeongsuho-lawyer/HWPCONV)](https://github.com/jeongsuho-lawyer/HWPCONV/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 한글 문서(HWP/HWPX)를 Markdown 또는 HTML로 변환하는 Windows 데스크톱 프로그램입니다.
 
-![HWP2MD 스크린샷](docs/screenshot.png)
+![HWPCONV 스크린샷](docs/screenshot.png)
 
-## 주요 기능
+## ✨ 주요 기능
 
-- **HWP/HWPX 변환**: 한글 문서를 Markdown(.md) 또는 HTML(.html)로 변환
-- **드래그 앤 드롭**: 파일이나 폴더를 창에 끌어다 놓으면 자동 변환
-- **이미지 분석**: Google Gemini API를 활용하여 문서 내 이미지 내용을 텍스트로 설명
-- **표 변환**: 문서 내 표를 마크다운/HTML 테이블로 변환
-- **일괄 처리**: 여러 파일을 한 번에 변환하고 저장
-- **파일별 형식 지정**: 각 파일마다 MD/HTML 형식을 개별 지정 가능
+### 🖼️ AI 이미지 분석 (핵심 기능)
+
+문서에 포함된 이미지를 **Google Gemini AI가 분석**하여 내용을 텍스트로 설명합니다.
+
+- 차트, 그래프, 도표의 내용을 자동 해석
+- 사진, 다이어그램의 의미를 텍스트로 변환
+- 스캔된 문서 내 이미지도 분석 가능
+
+```markdown
+# 변환 결과 예시
+> 🖼️ **[이미지]**: 2024년 매출 추이를 나타내는 막대 그래프.
+> 1분기 120억, 2분기 145억, 3분기 160억, 4분기 190억으로
+> 꾸준한 성장세를 보이고 있다.
+```
+
+### 📄 문서 변환
+- **HWP/HWPX → Markdown/HTML** 변환
+- **드래그 앤 드롭**: 파일을 창에 끌어다 놓으면 자동 변환
+- **표 변환**: 복잡한 표도 마크다운/HTML 테이블로 변환
+- **일괄 처리**: 여러 파일을 한 번에 변환
 
 ## 사용 방법
 
 ### 기본 사용
 
-1. `HWP2MD.exe` 실행
+1. `HWPCONV.exe` 실행
 2. 상단에서 변환 형식 선택 (`마크다운` 또는 `HTML`)
 3. HWP/HWPX 파일을 창으로 드래그 앤 드롭
 4. 변환 완료 후 `저장` 또는 `전체 저장` 클릭
 
-### 이미지 분석 기능
-
-문서 내 이미지를 AI가 분석하여 설명 텍스트를 생성합니다.
+### 이미지 분석 설정
 
 1. 우측 상단 `설정` 클릭
 2. Google Gemini API 키 입력 후 저장
@@ -49,32 +61,11 @@ API 키는 [Google AI Studio](https://aistudio.google.com/app/apikey)에서 **�
 
 새로운 모델이 출시되면 "직접 입력"으로 모델 ID를 입력하여 바로 사용할 수 있습니다.
 
-### 출력 예시
-
-**Markdown 출력:**
-```markdown
-# 문서 제목
-
-본문 내용입니다.
-
-| 항목 | 설명 |
-|------|------|
-| A | 내용1 |
-| B | 내용2 |
-
-> 🖼️ **[이미지]**: 회사 로고 이미지
-```
-
-**이미지 분석 미사용 시:**
-```markdown
-> 🖼️ **[이미지]**: *(이미지 생략)*
-```
-
 ## 설치 및 실행
 
 ### 실행 파일 (권장)
 
-`HWP2MD.exe` 파일을 다운로드하여 바로 실행하면 됩니다. 별도 설치가 필요 없습니다.
+[Releases](https://github.com/jeongsuho-lawyer/HWPCONV/releases)에서 `HWPCONV.exe`를 다운로드하여 바로 실행하면 됩니다. 별도 설치가 필요 없습니다.
 
 ### 소스에서 실행
 
@@ -90,7 +81,7 @@ pip install -r requirements.txt
 pyinstaller HwpConverterPro.spec
 ```
 
-빌드 결과: `dist/HWP2MD.exe`
+빌드 결과: `dist/HWPCONV.exe`
 
 > **참고**: `requirements.txt`에 의존성 버전이 고정되어 있어 동일한 빌드 환경을 재현할 수 있습니다.
 
@@ -112,7 +103,7 @@ pyinstaller HwpConverterPro.spec
 | 서식 (굵게, 기울임, 밑줄) | ✅ |
 | 제목 (H1~H6) | ✅ |
 | 표 | ✅ |
-| 이미지 | ✅ |
+| 이미지 (AI 분석) | ✅ |
 | 각주/미주 | ✅ |
 
 ## 개인정보 보호
@@ -125,9 +116,14 @@ pyinstaller HwpConverterPro.spec
 
 - **제작**: 법무법인 르네상스 정수호 변호사
 - **연락처**: shj@lawren.co.kr
-- **버전**: 1.0.1
+- **버전**: 1.1.0
 
 ## 변경 이력
+
+### v1.1.0
+- 프로젝트명 변경 (HWP2MD → HWPCONV)
+- Gemini 모델 선택 기능 추가
+- README 개선
 
 ### v1.0.1
 - 특수 문자(UTF-16 서로게이트) 포함 시 빈 파일 생성되는 버그 수정

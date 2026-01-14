@@ -356,7 +356,7 @@ class HwpConverterApp(tkinterDnD.Tk):
         super().__init__()
 
         # 1단계: 창 기본 설정 (즉시 표시)
-        self.title("HWP2MD")
+        self.title("HWPCONV")
         self.geometry("640x720")
         self.minsize(500, 600)
         self.configure(bg=COLORS['bg'])
@@ -395,7 +395,7 @@ class HwpConverterApp(tkinterDnD.Tk):
         header.pack(fill="x", padx=30, pady=(30, 20))
 
         ctk.CTkLabel(
-            header, text="HWP2MD",
+            header, text="HWPCONV",
             font=ctk.CTkFont(family=self.font_family, size=22, weight="bold"),
             text_color=COLORS['primary']
         ).pack(side="left")
@@ -578,7 +578,7 @@ class HwpConverterApp(tkinterDnD.Tk):
     
     def _show_about(self):
         """정보 다이얼로그 표시"""
-        about_text = """HWP2MD v1.0.0
+        about_text = """HWPCONV v1.0.0
 
 HWP/HWPX 문서를 Markdown/HTML로 변환합니다.
 Image analysis powered by Google Gemini
