@@ -5,6 +5,8 @@
 
 한글 문서(HWP/HWPX)를 Markdown 또는 HTML로 변환하는 Windows 데스크톱 프로그램입니다.
 
+![HWP2MD 스크린샷](docs/screenshot.png)
+
 ## 주요 기능
 
 - **HWP/HWPX 변환**: 한글 문서를 Markdown(.md) 또는 HTML(.html)로 변환
