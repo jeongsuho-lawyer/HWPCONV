@@ -3,6 +3,38 @@
 [![GitHub release](https://img.shields.io/github/v/release/jeongsuho-lawyer/HWPCONV)](https://github.com/jeongsuho-lawyer/HWPCONV/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+**Convert Korean HWP/HWPX documents to Markdown or HTML** — a Windows desktop app with AI-powered image analysis.
+
+> 🇰🇷 [한국어 설명은 아래에 있습니다](#-주요-기능)
+
+## Features
+
+- **HWP/HWPX → Markdown/HTML** conversion with full table support
+- **AI Image Analysis** — Google Gemini analyzes embedded images (charts, diagrams, scanned docs) and describes them in text
+- **Drag & Drop** — drop files onto the window for instant conversion
+- **Batch Processing** — convert multiple files at once
+- No installation required — single `.exe` file
+
+## Quick Start
+
+1. Download `HWPCONV.exe` from [Releases](https://github.com/jeongsuho-lawyer/HWPCONV/releases/latest)
+2. Run it — no installation needed
+3. Drag & drop your HWP/HWPX files
+4. (Optional) Add a free [Google Gemini API key](https://aistudio.google.com/app/apikey) in Settings for AI image analysis
+
+## What is HWP?
+
+HWP (Hangul Word Processor) is the dominant document format in South Korea, used extensively in government, legal, and corporate environments. Converting HWP files to standard formats like Markdown or HTML has been a long-standing challenge for developers working with Korean documents.
+
+## System Requirements
+
+- Windows 10 / 11
+- Internet connection (for AI image analysis only)
+
+---
+
+# HWPCONV (한국어)
+
 한글 문서(HWP/HWPX)를 Markdown 또는 HTML로 변환하는 Windows 데스크톱 프로그램입니다.
 
 ![HWPCONV 스크린샷](docs/screenshot.png)
